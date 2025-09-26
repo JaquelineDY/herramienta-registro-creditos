@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>{% block title %}Gestión de Créditos{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <!-- Botón de hamburguesa -->
+  <button id="hamburger" class="hamburger">☰</button>
+
+  <!-- Barra lateral -->
+  <nav id="sidebar" class="sidebar">
+    <div class="sidebar-header">
+      <img src="{{ url_for('static', filename='img/credito.png') }}" alt="Gestión de Créditos" style="width: 100%; height: auto;">
+      <h3>Bienvenido</h3>
+    </div>
+    <ul class="sidebar-menu">
+      <li><a href="{{ url_for('index') }}">Inicio</a></li>
+      <li><a href="{{ url_for('index') }}#formCredito">Registrar</a></li>
+      <li><a href="{{ url_for('index') }}#tablaCreditos">Lista</a></li>
+      <li><a href="{{ url_for('index') }}#graficas">Gráfica</a></li>
+    </ul>
+  </nav>
+
+  <!-- Contenido dinámico -->
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- Footer -->
+  <footer style="text-align: center; padding: 10px;">
+    <p>&copy; 2025 Gestión de Créditos. Todos los derechos reservados.</p>
+  </footer>
+
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

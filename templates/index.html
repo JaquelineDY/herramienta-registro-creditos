@@ -1,0 +1,343 @@
+{% extends "base.html" %}
+
+{% block title %}Gestión de Créditos{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+  <h1 class="text-center mb-4 ">Gestión de Créditos</h1>
+
+  <!-- Formulario -->
+  <section id="formCredito" class="mb-5">
+    <h2 class="text-primary">Registrar Crédito</h2>
+    <div class="row align-items-center">
+      <div class="col-md-6">
+        <form id="formCredito" class="row g-3">
+          <div class="col-md-6">
+            <label for="cliente" class="form-label">Nombre del Cliente</label>
+            <input type="text" id="cliente" class="form-control" placeholder="Cliente" required>
+          </div>
+          <div class="col-md-6">
+            <label for="monto" class="form-label">Monto del Crédito</label>
+            <input type="number" id="monto" class="form-control" placeholder="Monto" required>
+          </div>
+          <div class="col-md-6">
+            <label for="tasa_interes" class="form-label">Tasa de Interés (%)</label>
+            <input type="number" step="0.01" id="tasa_interes" class="form-control" placeholder="Tasa interés (%)"
+              required>
+          </div>
+          <div class="col-md-6">
+            <label for="plazo" class="form-label">Plazo en Meses</label>
+            <input type="number" id="plazo" class="form-control" placeholder="Plazo (meses)" required>
+          </div>
+          <div class="col-md-12">
+            <label for="fecha_otorgamiento" class="form-label">Fecha de Otorgamiento</label>
+            <input type="date" id="fecha_otorgamiento" class="form-control" required>
+          </div>
+          <div class="col-12 text-center">
+            <button type="submit" class="btn btn-primary">Guardar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <!-- Tabla -->
+  <section id="tablaCreditos" class="mb-5">
+    <h2 class="text-primary">Lista de Créditos</h2>
+    <div class="table-responsive">
+      <table class="table table-striped table-bordered">
+        <thead class="table-dark">
+          <tr>
+            <th>ID</th>
+            <th>Cliente</th>
+            <th>Monto</th>
+            <th>Tasa</th>
+            <th>Plazo</th>
+            <th>Fecha</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="tabla-creditos"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Gráficas -->
+  <section id="graficas" class="mb-5">
+    <h2 class="text-primary">Visualización de Créditos</h2>
+    <div class="row">
+      <div class="col-md-4">
+        <h3 class="text-secondary">Gráfica Circular</h3>
+        <canvas id="graficaCircular" class="w-100" style="max-height: 300px;"></canvas>
+      </div>
+      <div class="col-md-4">
+        <h3 class="text-secondary">Gráfica de Barras</h3>
+        <canvas id="graficaBarras" class="w-100" style="max-height: 300px;"></canvas>
+      </div>
+      <div class="col-md-4">
+        <h3 class="text-secondary">Gráfica Lineal</h3>
+        <canvas id="graficaLineal" class="w-100" style="max-height: 300px;"></canvas>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- Contenedor para ventana emergente -->
+<div id="popup" class="popup hidden">
+  <p id="popup-message"></p>
+</div>
+
+<style>
+  /* Estilo para resaltar la fila en edición */
+  .editando {
+    background-color: #00017a;
+    border: 2px solid #00017a;
+    color: #ffffff;
+  }
+
+  #formCredito .row {
+    display: flex;
+    flex-wrap: nowrap;
+  }
+
+  #formCredito .col-md-6 {
+    flex: 1;
+  }
+
+  .container {
+    margin-top: 60px;
+  }
+
+  .popup {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: #00017a;
+    color: #fff;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.5s ease, visibility 0.5s ease;
+    z-index: 1000;
+    display: block;
+  }
+
+  .popup.visible {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  .hidden {
+    display: none;
+  }
+
+  #sidebar {
+    background-color: #00017a;
+    color: #fff;
+    width: 250px;
+    height: 100%;
+    position: fixed;
+    top: 0;
+    left: -250px;
+    transition: left 0.3s ease;
+    z-index: 1000;
+  }
+
+  #sidebar.active {
+    left: 0;
+  }
+</style>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const tablaCreditos = document.getElementById("tabla-creditos");
+
+    // Obtener datos de nuestra API
+    fetch("/creditos")
+      .then(response => response.json())
+      .then(data => {
+        data.forEach(credito => {
+          const fila = document.createElement("tr");
+          fila.innerHTML = `
+            <td>${credito.id}</td>
+            <td contenteditable="false">${credito.cliente}</td>
+            <td contenteditable="false">${credito.monto}</td>
+            <td contenteditable="false">${credito.tasa_interes}</td>
+            <td contenteditable="false">${credito.plazo}</td>
+            <td contenteditable="false">${credito.fecha_otorgamiento}</td>
+            <td>
+              <button class="btn btn-warning btn-sm" onclick="editarFila(this)">Editar</button>
+              <button class="btn btn-success btn-sm" onclick="guardarFila(this, ${credito.id})" style="display:none;">Guardar</button>
+              <button class="btn btn-danger btn-sm" onclick="eliminarFila(${credito.id}, this)">Eliminar</button>
+            </td>
+          `;
+          tablaCreditos.appendChild(fila);
+        });
+
+        // Generar las gráficas a partir de los datos
+        generarGraficas(data);
+      })
+      .catch(error => console.error("Error al cargar los créditos:", error));
+  });
+
+  function generarGraficas(data) {
+    const ctxCircular = document.getElementById("graficaCircular").getContext("2d");
+    const ctxBarras = document.getElementById("graficaBarras").getContext("2d");
+    const ctxLineal = document.getElementById("graficaLineal").getContext("2d");
+
+    // Gráfica Circular
+    new Chart(ctxCircular, {
+      type: "pie",
+      data: {
+        labels: data.map(c => c.cliente),
+        datasets: [{
+          data: data.map(c => c.monto),
+          backgroundColor: ["#D1E7FF", "#A3CFFF", "#4169E1", "#27408B", "#27408B"],
+        }],
+      },
+    });
+
+    // Gráfica de Barras
+    new Chart(ctxBarras, {
+      type: "bar",
+      data: {
+        labels: data.map(c => c.cliente),
+        datasets: [{
+          label: "Monto del Crédito",
+          data: data.map(c => c.monto),
+          backgroundColor: ["#D1E7FF", "#A3CFFF", "#4169E1", "#27408B", "#27408B"],
+        }],
+      },
+    });
+
+    // Gráfica Lineal
+    new Chart(ctxLineal, {
+      type: "line",
+      data: {
+        labels: data.map(c => c.cliente),
+        datasets: [{
+          label: "Monto del Crédito",
+          data: data.map(c => c.monto),
+          borderColor: ["#D1E7FF", "#A3CFFF", "#4169E1", "#27408B", "#27408B"],
+          fill: false,
+        }],
+      },
+    });
+  }
+
+  function editarFila(boton) {
+    const fila = boton.parentElement.parentElement;
+    fila.classList.add("editando"); // Agregar clase para resaltar la fila
+    const celdas = fila.querySelectorAll("td[contenteditable='false']");
+    celdas.forEach(celda => celda.setAttribute("contenteditable", "true"));
+    boton.style.display = "none"; // Ocultar botón "Editar"
+    fila.querySelector("button[onclick^='guardarFila']").style.display = "inline"; // Mostrar botón "Guardar"
+  }
+
+  function guardarFila(boton, id) {
+    const fila = boton.parentElement.parentElement;
+    const celdas = fila.querySelectorAll("td[contenteditable='true']");
+    const datosActualizados = {
+      cliente: celdas[0].innerText,
+      monto: parseFloat(celdas[1].innerText),
+      tasa_interes: parseFloat(celdas[2].innerText),
+      plazo: parseInt(celdas[3].innerText),
+      fecha_otorgamiento: celdas[4].innerText
+    };
+
+    // Enviar datos actualizados al backend
+    fetch(`/creditos/${id}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(datosActualizados)
+    })
+      .then(response => response.json())
+      .then(data => {
+        if (data.error) {
+          mostrarPopup(`Error: ${data.error}`);
+        } else {
+          mostrarPopup("Crédito actualizado exitosamente");
+          celdas.forEach(celda => celda.setAttribute("contenteditable", "false"));
+          fila.classList.remove("editando");
+          boton.style.display = "none";
+          fila.querySelector("button[onclick^='editarFila']").style.display = "inline";
+        }
+      })
+      .catch(error => console.error("Error al actualizar el crédito:", error));
+  }
+
+  function eliminarFila(id, boton) {
+    if (confirm("¿Estás seguro de que deseas eliminar este crédito?")) {
+      fetch(`/creditos/${id}`, {
+        method: "DELETE"
+      })
+        .then(response => {
+          if (response.ok) {
+            const fila = boton.closest("tr");
+            fila.remove();
+            mostrarPopup("Crédito eliminado correctamente.");
+          } else {
+            mostrarPopup("Error al eliminar el crédito.");
+          }
+        })
+        .catch(error => console.error("Error al eliminar el crédito:", error));
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    const formCredito = document.getElementById("formCredito");
+
+    formCredito.addEventListener("submit", function (event) {
+      event.preventDefault();
+
+      const cliente = document.getElementById("cliente").value;
+      const monto = document.getElementById("monto").value;
+      const tasa_interes = document.getElementById("tasa_interes").value;
+      const plazo = document.getElementById("plazo").value;
+      const fecha_otorgamiento = document.getElementById("fecha_otorgamiento").value;
+
+      // Enviar los datos al backend
+      fetch("/creditos", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          cliente,
+          monto,
+          tasa_interes,
+          plazo,
+          fecha_otorgamiento
+        })
+      })
+        .then(response => response.json())
+        .then((data) => {
+          if (data.error) {
+            mostrarPopup(`Error: ${data.error}`);
+          } else {
+            mostrarPopup("Crédito registrado exitosamente");
+            location.reload(); // Recargar la página para actualizar la tabla
+          }
+        })
+        .catch(error => console.error("Error al registrar el crédito:", error));
+    });
+  });
+
+  function mostrarPopup(mensaje) {
+    const popup = document.getElementById('popup');
+    const popupMessage = document.getElementById('popup-message');
+
+    popupMessage.textContent = mensaje;
+    popup.classList.add('visible');
+
+    setTimeout(() => {
+      popup.classList.remove('visible');
+    }, 3000); // Ocultar después de 3 segundos
+  }
+</script>
+{% endblock %}
